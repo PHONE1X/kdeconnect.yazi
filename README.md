@@ -7,7 +7,7 @@ does, and file sharing, without leaving the terminal.
 Two actions in one plugin:
 
 - **`browse`** — mounts the paired phone (via KDE Connect's own SFTP/sshfs mechanism) and `cd`s
-  straight into it, remounting fresh every time it's invoked.
+  straight into it, mounting on demand if it isn't already.
 - **`send`** — shares the selected files (or the hovered file, if nothing is explicitly selected)
   to a paired device.
 
@@ -22,45 +22,20 @@ Two actions in one plugin:
   `--get-mount-point`, and `--share`. This plugin is a thin, honest wrapper around those three
   flags — no DBus calls of its own, no guessed paths.
 
-## Three real KDE Connect quirks this plugin works around
-
-These took a fair bit of live debugging to pin down, so they're documented here in case they
-save someone else the trouble:
-
-1. **The mounted root isn't listable.** `kdeconnect-cli --mount` mounts
-   `kdeconnect@phone:/` — but that bare root is a synthetic root on the Android side that
-   permission-denies any attempt to *list* it directly, even on a perfectly healthy, freshly
-   authenticated mount. The real files live one level of indirection deeper, at
-   `storage/emulated/0`. KDE Connect's own "View this device" button already knows this and jumps
-   straight there — this plugin does the same, falling back to the bare root only if that path
-   doesn't exist.
-2. **`--mount` is idempotent and doesn't detect a dead session.** If the phone drops the
-   connection (screen off, Wi-Fi sleep, etc.), the mountpoint can be left registered but
-   permission-denying every read, forever — and since KDE Connect's DBus side still thinks it's
-   mounted, calling `--mount` again does nothing. This plugin always force-unmounts
-   (`fusermount -u`) before remounting, so `browse` reliably gets a live session instead of
-   possibly reusing a stale one.
-3. **The mountpoint can exist before the SSH session is actually ready.** A read attempted in
-   that narrow window fails with permission denied even though the same path works moments later.
-   Instead of just checking the directory exists, this plugin polls with a real `ls` (up to ~6s)
-   before handing control back to Yazi, and surfaces the real underlying error if it never
-   recovers rather than dropping you into a directory that silently looks empty.
-
 ## Requirements
 
 - KDE Connect installed and running, with `kdeconnect-cli` in `PATH`.
 - `sshfs` installed — KDE Connect's `--mount` reports success even when the underlying `sshfs`
   mount silently fails (a known KDE Connect quirk), so this plugin double-checks the mount point
   actually exists afterwards and tells you to check `sshfs` if it doesn't.
-- `fusermount` (part of `fuse`/`fuse3`, virtually always already present alongside `sshfs`).
 - At least one device paired and reachable.
 
 ## Installation
 
 ```sh
-ya pkg add <your-github-username>/kdeconnect.yazi
+ya pkg add PHONE1X/kdeconnect.yazi
 # or
-git clone https://github.com/<your-github-username>/kdeconnect.yazi.git ~/.config/yazi/plugins/kdeconnect.yazi
+git clone https://github.com/PHONE1X/kdeconnect.yazi.git ~/.config/yazi/plugins/kdeconnect.yazi
 ```
 
 ## Usage
